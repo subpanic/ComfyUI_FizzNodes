@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import re
 import json
+import math
 
 
 from .ScheduleFuncs import check_is_number, interpolate_prompts, interpolate_prompts_SDXL, PoolAnimConditioning, interpolate_string, addWeighted, reverseConcatenation
@@ -78,7 +79,8 @@ class BatchPromptSchedule:
     def INPUT_TYPES(s):
         return {"required": {"text": ("STRING", {"multiline": True, "default": defaultPrompt}),
                              "clip": ("CLIP",),
-                             "max_frames": ("INT", {"default": 120.0, "min": 1.0, "max": 9999.0, "step": 1.0}),},
+                             "max_frames": ("INT", {"default": 120.0, "min": 1.0, "max": 9999.0, "step": 1.0}),
+                             "normalize_keys": ("BOOLEAN", {"default": False}),},
                 # "forceInput": True}),},
                 "optional": {"pre_text": ("STRING", {"multiline": False, }),  # "forceInput": True}),
                              "app_text": ("STRING", {"multiline": False, }),  # "forceInput": True}),
@@ -97,9 +99,18 @@ class BatchPromptSchedule:
 
     CATEGORY = "FizzNodes/BatchScheduleNodes"
 
-    def animate(self, text, max_frames, clip, pw_a, pw_b, pw_c, pw_d, pre_text='', app_text=''):
+    def animate(self, text, max_frames, normalize_keys, clip, pw_a, pw_b, pw_c, pw_d, pre_text='', app_text=''):
         inputText = str("{" + text + "}")
         animation_prompts = json.loads(inputText.strip())
+
+        if normalize_keys:
+            normalized_prompts = {}
+            for key, value in animation_prompts.items():
+                normalized_key = int(float(key) * max_frames)
+                normalized_prompts[str(normalized_key)] = value
+            
+            animation_prompts = normalized_prompts
+
         cur_prompt, nxt_prompt, weight = interpolate_prompt_series(animation_prompts, max_frames, pre_text,
         app_text, pw_a, pw_b, pw_c, pw_d)
         c = BatchPoolAnimConditioning(cur_prompt, nxt_prompt, weight, clip, )
